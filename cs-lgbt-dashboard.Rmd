@@ -1,11 +1,10 @@
 ---
 title: "CS LGBT Network - data review"
 output: 
-  flexdashboard::flex_dashboard:
-    storyboard: true
+  flexdashboard::flex_dashboard
 ---
 
-```{r setup, include=FALSE}
+```{r setup LGB+ & heterosexual sheet, include=FALSE}
 
 #load packages
 library(flexdashboard)
@@ -15,6 +14,7 @@ library(readxl)
 library(stringr)
 library(janitor)
 library(naniar)
+library(plotly)
 
 #Read in 2020 People survey data for LGB+
 LGB2020 <- read_excel("C:/Users/prile/OneDrive/cs-lgbt/cs-lgbt-dashboard/Data/LGB_2020.xlsx",
@@ -37,6 +37,7 @@ LGB2020 <- rename(LGB2020, "Demo_info" = "Demographic variable [1, 5, 6]",
                   "rw_p" = colnames(LGB2020)[11],
                   "pb_p" = colnames(LGB2020)[12],
                   "lc_p" = colnames(LGB2020)[13],
+                  "B03" = colnames(LGB2020)[18],
                   "E01" = colnames(LGB2020)[83],
                   "E03" = colnames(LGB2020)[104]
 )
@@ -99,22 +100,121 @@ LGBDataTypes <- LGBTidyNewCols %>%
 str(LGBDataTypes)
 summary(LGBDataTypes)
 
+
+################################ Heterosexual sheet #################################################################
+#Read in 2020 People survey data for heterosexual
+heterosexual2020 <- read_excel("C:/Users/prile/OneDrive/cs-lgbt/cs-lgbt-dashboard/Data/LGB_2020.xlsx",
+           sheet = "Heterosexual", col_names = TRUE)
+
+#Remove top 3 rows as they don't include relevant data
+heterosexual2020 <- heterosexual2020[-c(1:3), ]
+
+#Make first row the new headers, and change some column names to something small
+heterosexual2020 <- row_to_names(heterosexual2020, 1)
+
+heterosexual2020 <- rename(heterosexual2020, "Demo_info" = "Demographic variable [1, 5, 6]",
+                  "ees" = colnames(heterosexual2020)[4],
+                  "mw_p" = colnames(heterosexual2020)[5],
+                  "op_p" = colnames(heterosexual2020)[6],
+                  "lm_p" = colnames(heterosexual2020)[7],
+                  "mt_p" = colnames(heterosexual2020)[8],
+                  "ld_p" = colnames(heterosexual2020)[9],
+                  "if_p" = colnames(heterosexual2020)[10],
+                  "rw_p" = colnames(heterosexual2020)[11],
+                  "pb_p" = colnames(heterosexual2020)[12],
+                  "lc_p" = colnames(heterosexual2020)[13],
+                  "B03" = colnames(heterosexual2020)[18],
+                  "E01" = colnames(heterosexual2020)[83],
+                  "E03" = colnames(heterosexual2020)[104]
+)
+
+#Transform data into tidy format for easier analysis
+heterosexualTidy <- heterosexual2020 %>% 
+            gather(Question, percentage, -Demo_info, -Response, -Count) %>% 
+  mutate(Demo_info_three = gsub(":.*","", Demo_info))
+
+#Merge Annexes with the demo_info and questions so that the info is available
+
+
+
+
+#Merge annexes with the question codes in master df
+heterosexualTidyMerge <- left_join(heterosexualTidy, demoQuestions, by = c("Demo_info_three" = "Question_code"))
+
+heterosexualTidyMerge <- left_join(heterosexualTidyMerge, surveyQuestions, by = c("Question" = "Question_code"))
+
+
+#Tidy up columns by removing question codes and renaming duplicated cols
+heterosexualidyNewCols <- heterosexualTidyMerge %>% 
+                    select(-Demo_info, -Question) %>% 
+                    rename("Demo_question" = "Question_label.x",
+                           "Survey_question" = "Question_label.y",
+                           "Demo_response" = "Response")
+
+
+#Make columns into correct data types
+#change data types
+heterosexualDataTypes <- heterosexualidyNewCols %>%
+                transform(Count = as.numeric(Count),
+                          percentage = as.numeric(percentage),
+                          Demo_question = as.factor(Demo_question),
+                          Survey_question = as.factor(Survey_question))
+
+#Check structure and summarise data after changes
+#[c] stands for suppressed in the data, which has been changed to NA during data type change
+str(heterosexualDataTypes)
+summary(heterosexualDataTypes)
+
+
+
+
+
+
+```
+
+
+```{r bullying, include = FALSE}
+
+
+
+
 ## Ethnicity -----------------------------------------------------------------------------------------------
 
 
 #Summarise data to analyse
 #Look at ethnicity info and question of bullying
-EthnicityBullying <- LGBDataTypes %>% 
+LGBEthnicityBullying <- LGBDataTypes %>% 
                       filter(Demo_question == "Ethnicities (full)", 
-                             Survey_question == "Have you been bullied or harassed at work, in the past 12 months? (% yes)")
+                             Survey_question == "Have you been bullied or harassed at work, in the past 12 months? (% yes)") %>% 
+  mutate(sexuality = "LGB+")
+
+
+heterosexualEthnicityBullying <- heterosexualDataTypes %>% 
+                      filter(Demo_question == "Ethnicities (full)", 
+                             Survey_question == "Have you been bullied or harassed at work, in the past 12 months? (% yes)") %>% 
+  mutate(sexuality = "Heterosexual")
+
+
+EthnicityBullying <- LGBEthnicityBullying %>% 
+  bind_rows(heterosexualEthnicityBullying)
+
 
 ## Sexual orientation ----------------------------------------------------------------------------------------------------------
 
-#Look at bullying and harrassment info for LGB
-sexualOrientationBullying <- LGBDataTypes %>% 
+#Look at bullying and harassment info for LGB
+LGBsexualOrientationBullying <- LGBDataTypes %>% 
                       filter(Demo_question == "Which of the following (sexual orientation) options best describes how you think of yourself?", 
-                              Survey_question == "Have you been bullied or harassed at work, in the past 12 months? (% yes)")
+                              Survey_question == "Have you been bullied or harassed at work, in the past 12 months? (% yes)") %>% 
+  mutate(sexuality = "LGB+")
 
+
+heterosexualsexualOrientationBullying <- heterosexualDataTypes %>% 
+                      filter(Demo_question == "Which of the following (sexual orientation) options best describes how you think of yourself?", 
+                              Survey_question == "Have you been bullied or harassed at work, in the past 12 months? (% yes)") %>% 
+  mutate(sexuality = "Heterosexual")
+
+sexualOrientationBullying <- LGBsexualOrientationBullying %>% 
+  bind_rows(heterosexualsexualOrientationBullying)
 
 ## By organisation -------------------------------------------------------------------------------------------------------
 #Look at organisations and their score for bullying
@@ -141,80 +241,259 @@ orgBullyingShort <- rename(orgBullyingShort, "OrgGroup" = "Organisation group",
 
 #group by organisation group and filter by LGB+ responses only
 #Transform the columns that need to be numeric and also remove NAs
-orgBullyingFilter <- orgBullyingShort %>%
+LGBOrgBullying <- orgBullyingShort %>%
                       transform(Count = as.numeric(Count),
                                 Bullying = as.numeric(Bullying)) %>% 
                       na.omit() %>% 
                       filter(Response == "LGB+")
 
+heterosexualOrgBullying <- orgBullyingShort %>%
+                      transform(Count = as.numeric(Count),
+                                Bullying = as.numeric(Bullying)) %>% 
+                      na.omit() %>% 
+                      filter(Response == "Heterosexual/straight")
+
 #Group by Organisation group and create column with median score
-orgBullyingGroup <- orgBullyingFilter %>% 
-                      group_by(OrgGroup) %>%
-                      summarise_at(vars(Bullying), list(Average = median))
+LGBOrgBullyingGroup <- LGBOrgBullying %>% 
+                          group_by(OrgGroup) %>%
+                          summarise_at(vars(Bullying), list(Average = median)) %>% 
+  mutate(sexuality = "LGB+")
+
+heterosexualOrgBullyingGroup <- heterosexualOrgBullying %>% 
+                                  group_by(OrgGroup) %>%
+                                  summarise_at(vars(Bullying), list(Average = median)) %>% 
+  mutate(sexuality = "Heterosexual")
+
+
+OrgBullyingGroup <- LGBOrgBullyingGroup %>% 
+  bind_rows(heterosexualOrgBullyingGroup)
+
+
+# SEB status (self-declared) ---------------------------------------------------------------------------------------------------------------------------------------------------
+
+LGBSEBBullying <- LGBDataTypes %>% 
+                      filter(Demo_question == "Compared to people in general, would you describe yourself as coming from a lower socio-economic background?", 
+                              Survey_question == "Have you been bullied or harassed at work, in the past 12 months? (% yes)") %>% 
+  mutate(sexuality = "LGB+")
+
+
+heterosexualSEBBullying <- heterosexualDataTypes %>% 
+                      filter(Demo_question == "Compared to people in general, would you describe yourself as coming from a lower socio-economic background?", 
+                              Survey_question == "Have you been bullied or harassed at work, in the past 12 months? (% yes)") %>% 
+  mutate(sexuality = "Heterosexual")
+
+
+SEBBullying <- LGBSEBBullying %>% 
+  bind_rows(heterosexualSEBBullying)
+
+
+
+# Location  ---------------------------------------------------------------------------------------------------------------------------------------------------
+
+LGBLocationBullying <- LGBDataTypes %>% 
+                      filter(Demo_question == "Where in England do you currently work?", 
+                              Survey_question == "Have you been bullied or harassed at work, in the past 12 months? (% yes)") %>% 
+  mutate(sexuality = "LGB+")
+
+
+heterosexualLocationBullying <- heterosexualDataTypes %>% 
+                      filter(Demo_question == "Where in England do you currently work?", 
+                              Survey_question == "Have you been bullied or harassed at work, in the past 12 months? (% yes)") %>% 
+  mutate(sexuality = "Heterosexual")
+
+
+LocationBullying <- LGBLocationBullying %>% 
+  bind_rows(heterosexualLocationBullying)
+
 
 ```
 
 
-### Ethnicity & bullying data
+```{r Career development}
+
+# Accomplishment question
+
+LGBsexualorientationAcc <- LGBDataTypes %>% 
+                      filter(Demo_question == "Which of the following (sexual orientation) options best describes how you think of yourself?", 
+                              Survey_question == "My work gives me a sense of personal accomplishment (% strongly agree or agree)") %>% 
+  mutate(sexuality = "LGB+")
+
+
+heterosexualsexualorientationAcc <- heterosexualDataTypes %>% 
+                      filter(Demo_question == "Which of the following (sexual orientation) options best describes how you think of yourself?", 
+                              Survey_question == "My work gives me a sense of personal accomplishment (% strongly agree or agree)") %>% 
+  mutate(sexuality = "Heterosexual")
+
+
+sexualorientationAcc <- LGBsexualorientationAcc %>% 
+  bind_rows(heterosexualsexualorientationAcc)
+
+
+
+# Employee engagement index index
+
+# Accomplishment question
+
+LGBsexualorientationEEI <- LGBDataTypes %>% 
+                      filter(Demo_question == "Which of the following (sexual orientation) options best describes how you think of yourself?", 
+                              Survey_question == "Employee engagement index (B47 to B51)") %>% 
+  mutate(sexuality = "LGB+")
+
+
+heterosexualsexualorientationEEI <- heterosexualDataTypes %>% 
+                      filter(Demo_question == "Which of the following (sexual orientation) options best describes how you think of yourself?", 
+                              Survey_question == "Employee engagement index (B47 to B51)") %>% 
+  mutate(sexuality = "Heterosexual")
+
+
+sexualorientationEEI <- LGBsexualorientationEEI %>% 
+  bind_rows(heterosexualsexualorientationEEI)
+
+```
+
+About this tool
+===============================================
+
+This is a prototype tool contains a "storyboard"-type dashboard. It contains analysis on the 2020 Civil Service People Survey dataset for LGB+ respondents and heterosexual respondents on some key areas.
+
+This work is not an output under national, official or experimental statistics. It does use [publicly available data from the Civil Service People Survey, published by the Cabinet Office](https://www.gov.uk/government/publications/civil-service-people-survey-2021-results).
+
+Any blank data indicates data supression under dominance & disclosure rules.
+
+*It is possible to zoom in & out of these graphs.*
+
+This work has been on a voluntary basis with colleagues who are part of the [Civil Service LGBT+ Network](www.civilservice.lgbt) data team. They are civil servants.
+* T Elliot
+* P Riley
+* J Smith
+* J Peart (network coordinator)
+
+
+Bullying {.storyboard}
+===============================================
+
+
+### By ethnicity
+
 ```{r}
-library(plotly)
-#Create graph with ethnicity and bullying data
-p <- ggplot(EthnicityBullying, aes(x = Demo_response, y = percentage)) +
-  geom_bar(stat = "identity") +
-  labs(x = "Ethnicity", y = "Average % of LGB+ colleagues bullied",
-       title = "Median percentage of LGB+ colleagues experiencing bullying per Ethnicity") +
-  theme(axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = .8, hjust = 0.8))
+p1 <- ggplot(EthnicityBullying, aes(x = Demo_response, y = percentage, fill = sexuality)) +
+  geom_bar(stat = "identity", position = position_dodge())+
+  labs(x = "", y = "% bullied (heterosexual)",
+       title = "Heterosexual colleagues experiencing bullying, by ethnicity") +
+  theme(axis.text.x = element_text(colour = "black", size = 8, angle = 45, vjust = .8, hjust = 0.8)) +
+  scale_x_discrete(labels = function(x) stringr::str_wrap(x, 15)) +
+  coord_flip()
 
-ggplotly(p)
+ggplotly(p1)
 
 ```
 
 
-***
 
-* PROVISIONAL / NOT QA'd *
-
-This graph shows ethnicity & bullying data for LGB staff respondents, from the CS People Survey 20xx. 
-
-
-### Sexual orientation & bullying, by department
+### By sexual orientation
 
 ```{r}
 p2 <- ggplot(sexualOrientationBullying, aes(x = Demo_response, y = percentage)) +
-  geom_bar(stat = "identity")
+  geom_bar(stat = "identity") +
+  labs(x = "", y = "% bullied",
+       title = "Percentage of colleagues experiencing bullying, by sexual orientation") +
+  theme(axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = .8, hjust = 0.8)) + 
+  coord_flip()
 
 
 ggplotly(p2)
+
 ```
 
-*** 
+### SEB indicator
 
-* PROVISIONAL / NOT QA'd *
-
-This graph shows sexual orientation and bullying data for LGB staff respondents, from the CS People Survey 20xx.
-
-
-### Sexual orientation and bullying, by department
 
 ```{r}
-p3 <- ggplot(orgBullyingGroup, aes(x = OrgGroup, y = Average)) +
-  geom_bar(stat = "identity") +
-  labs(x = "Organisation group", y = "Average % of LGB+ colleagues bullied",
-       title = "Median percentage of LGB+ colleagues experiencing bullying per Civil Service Organisation") +
-  theme(axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = .8, hjust = 0.8))
+p3 <- ggplot(SEBBullying, aes(x = Demo_response, y = percentage, fill = sexuality)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(x = "", y = "% bullied",
+       title = "Percentage of colleagues experiencing bullying, by sexual orientation") +
+  theme(axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = .8, hjust = 0.8)) + 
+  coord_flip()
 
 
 ggplotly(p3)
 
 ```
 
+### Sexual orientation, by department
 
-***
+```{r}
+p4 <- ggplot(OrgBullyingGroup, aes(x = OrgGroup, y = Average, fill = sexuality)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(x = "", y = "Average % of LGB+ colleagues bullied",
+       title = "Median percentage of LGB+ colleagues experiencing bullying per Civil Service Organisation (group level)")+
+  scale_x_discrete(labels = function(x) stringr::str_wrap(x, 40)) +
+  scale_y_continuous(breaks = seq(0, 30, 10)) +
+  theme(axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = .8, hjust = 0.8)) + 
+  coord_flip()
 
-* PROVISIONAL / NOT QA'd *
 
-This graph shows the median percentage of LGB+ colleagues bullied (from CS People Survey 20xx data), split by department. 
+ggplotly(p4)
+
+```
 
 
+
+
+### Location
+
+```{r}
+p5 <- ggplot(LocationBullying, aes(x = Demo_response, y = percentage, fill = sexuality)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(x = "", y = "% bullied",
+       title = "Percentage of colleagues experiencing bullying, by location") +
+  scale_x_discrete(labels = function(x) stringr::str_wrap(x, 20)) +
+  theme(axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = .8, hjust = 0.8)) + 
+  coord_flip()
+
+
+ggplotly(p5)
+
+```
+
+
+
+Career progression, L&D {.storyboard}
+===============================================
+
+
+### Sense of accomplishment 
+
+```{r}
+p6 <- ggplot(sexualorientationAcc, aes(x = Demo_response, y = percentage)) +
+  geom_bar(stat = "identity",) +
+  labs(x = "", y = "% score",
+       title = "Percentage of colleagues with a sense of accomplishment, by sexual orientation") +
+  scale_x_discrete(labels = function(x) stringr::str_wrap(x, 20)) +
+  theme(axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = .8, hjust = 0.8)) + 
+  coord_flip()
+
+
+ggplotly(p6)
+
+```
+
+### Employee Engagement Index (this is an index, not individual question)
+
+```{r}
+p7 <- ggplot(sexualorientationEEI, aes(x = Demo_response, y = percentage)) +
+  geom_bar(stat = "identity",) +
+  labs(x = "", y = "% score",
+       title = "Employee engagement index, by sexual orientation") +
+  scale_x_discrete(labels = function(x) stringr::str_wrap(x, 20)) +
+  theme(axis.text.x = element_text(colour = "black", size = 8, angle = 90, vjust = .8, hjust = 0.8)) + 
+  coord_flip()
+
+
+ggplotly(p7)
+
+
+```
 
 
